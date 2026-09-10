@@ -1,0 +1,16 @@
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+jupyter
+notebook
+python-dotenv
+openpyxl
+plotly
+dash
+statsmodels
+xgboost
+lightgbm
+pyyaml
+requests

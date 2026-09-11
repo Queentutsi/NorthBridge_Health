@@ -22,3 +22,6 @@ venv/
 
 # VS Code settings
 .vscode/
+
+output/
+models/

@@ -1,198 +1,147 @@
-{
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": 9,
-   "id": "8f5b69de",
-   "metadata": {},
-   "outputs": [
-    {
-     "name": "stdout",
-     "output_type": "stream",
-     "text": [
-      "Sheets found in the Excel file:\n",
-      "['README', 'PriorityLevels', 'TicketCategories', 'SLADefinitions', 'Agents', 'Clients', 'Tickets', 'TicketAuditLog', 'EscalationLog']\n",
-      "\n",
-      "===== Sheet: README =====\n",
-      "['NorthBridge Health Services Ltd', 'Customer Service Ticket & SLA Optimisation System - Dataset']\n",
-      "\n",
-      "===== Sheet: PriorityLevels =====\n",
-      "['PriorityID', 'PriorityLabel', 'Description']\n",
-      "\n",
-      "===== Sheet: TicketCategories =====\n",
-      "['CategoryID', 'CategoryName', 'DefaultPriorityID', 'RequiresSpecialist', 'Description']\n",
-      "\n",
-      "===== Sheet: SLADefinitions =====\n",
-      "['SLAID', 'ContractTier', 'PriorityID', 'FirstResponseHours', 'ResolutionHours', 'EscalationTriggerHours', 'EffectiveFrom']\n",
-      "\n",
-      "===== Sheet: Agents =====\n",
-      "['AgentID', 'FullName', 'TeamID', 'Role', 'Specialisms', 'Hub', 'DailyCapacity', 'IsActive']\n",
-      "\n",
-      "===== Sheet: Clients =====\n",
-      "['ClientID', 'ClientName', 'ClientType', 'ContractTier', 'AccountManagerID', 'Region', 'ContractStartDate', 'ContractEndDate', 'SLACreditClause', 'IsActive']\n",
-      "\n",
-      "===== Sheet: Tickets =====\n",
-      "['TicketID', 'TicketReference', 'ClientID', 'PatientRef', 'CategoryID', 'PriorityID', 'Status', 'AssignedAgentID', 'CreatedAt', 'FirstResponseAt', 'ResolvedAt', 'SLADueAt', 'SLABreached', 'Channel', 'Description', 'ResolutionNotes']\n",
-      "\n",
-      "===== Sheet: TicketAuditLog =====\n",
-      "['LogID', 'TicketID', 'ActionType', 'ActionByID', 'ActionAt', 'PreviousValue', 'NewValue', 'Notes']\n",
-      "\n",
-      "===== Sheet: EscalationLog =====\n",
-      "['EscalationID', 'TicketID', 'EscalatedFrom', 'EscalatedTo', 'EscalationReason', 'EscalatedAt', 'AutomatedFlag']\n"
-     ]
-    }
-   ],
-   "source": [
-    "import pandas as pd\n",
-    "\n",
-    "file_path = r\"C:\\Users\\akand\\OneDrive\\Documents\\data journey\\Amdari Resources\\DS Projects\\NorthBridge_Health\\Data\\NorthBridgeDataset.xlsx\"\n",
-    "\n",
-    "# Load the Excel file once\n",
-    "xlsx = pd.ExcelFile(file_path)\n",
-    "\n",
-    "# Print sheet names\n",
-    "print(\"Sheets found in the Excel file:\")\n",
-    "print(xlsx.sheet_names)\n",
-    "\n",
-    "# Loop through each sheet and print its columns\n",
-    "for sheet in xlsx.sheet_names:\n",
-    "    df = pd.read_excel(file_path, sheet_name=sheet)\n",
-    "    print(f\"\\n===== Sheet: {sheet} =====\")\n",
-    "    print(df.columns.tolist())\n"
-   ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": 1,
-   "id": "f8219ea0",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "import pandas as pd\n",
-    "\n",
-    "# -----------------------------\n",
-    "# Generic cleaning helpers\n",
-    "# -----------------------------\n",
-    "\n",
-    "def clean_dates(df, cols):\n",
-    "    \"\"\"Convert listed columns to datetime.\"\"\"\n",
-    "    for col in cols:\n",
-    "        if col in df.columns:\n",
-    "            df[col] = pd.to_datetime(df[col], errors=\"coerce\")\n",
-    "    return df\n",
-    "\n",
-    "\n",
-    "def clean_text(df, cols):\n",
-    "    \"\"\"Lowercase + strip whitespace for categorical text fields.\"\"\"\n",
-    "    for col in cols:\n",
-    "        if col in df.columns:\n",
-    "            df[col] = df[col].astype(str).str.strip().str.lower()\n",
-    "    return df\n",
-    "\n",
-    "\n",
-    "def fill_missing(df, fill_map):\n",
-    "    \"\"\"Fill missing values for specified columns.\"\"\"\n",
-    "    for col, value in fill_map.items():\n",
-    "        if col in df.columns:\n",
-    "            df[col] = df[col].fillna(value)\n",
-    "    return df\n",
-    "\n",
-    "\n",
-    "# -----------------------------\n",
-    "# Sheet-specific cleaning\n",
-    "# -----------------------------\n",
-    "\n",
-    "def clean_tickets(tickets: pd.DataFrame) -> pd.DataFrame:\n",
-    "    \"\"\"Clean the Tickets sheet.\"\"\"\n",
-    "    # Convert timestamps\n",
-    "    tickets = clean_dates(\n",
-    "        tickets,\n",
-    "        [\"CreatedAt\", \"FirstResponseAt\", \"ResolvedAt\", \"SLADueAt\"]\n",
-    "    )\n",
-    "\n",
-    "    # Clean categorical fields\n",
-    "    tickets = clean_text(\n",
-    "        tickets,\n",
-    "        [\"Status\", \"Channel\", \"Description\", \"ResolutionNotes\"]\n",
-    "    )\n",
-    "\n",
-    "    # Fill important categorical fields\n",
-    "    tickets = fill_missing(\n",
-    "        tickets,\n",
-    "        {\n",
-    "            \"PriorityID\": \"unknown\",\n",
-    "            \"CategoryID\": \"unknown\",\n",
-    "            \"Channel\": \"unknown\"\n",
-    "        }\n",
-    "    )\n",
-    "\n",
-    "    return tickets\n",
-    "\n",
-    "\n",
-    "def clean_clients(clients: pd.DataFrame) -> pd.DataFrame:\n",
-    "    \"\"\"Clean the Clients sheet.\"\"\"\n",
-    "    clients = clean_text(\n",
-    "        clients,\n",
-    "        [\"ClientName\", \"ClientType\", \"Region\", \"ContractTier\", \"SLACreditClause\"]\n",
-    "    )\n",
-    "\n",
-    "    # Convert contract dates\n",
-    "    clients = clean_dates(\n",
-    "        clients,\n",
-    "        [\"ContractStartDate\", \"ContractEndDate\"]\n",
-    "    )\n",
-    "\n",
-    "    return clients\n",
-    "\n",
-    "\n",
-    "def clean_agents(agents: pd.DataFrame) -> pd.DataFrame:\n",
-    "    \"\"\"Clean the Agents sheet.\"\"\"\n",
-    "    agents = clean_text(\n",
-    "        agents,\n",
-    "        [\"FullName\", \"Role\", \"Specialisms\", \"Hub\"]\n",
-    "    )\n",
-    "\n",
-    "    # Convert DailyCapacity to numeric\n",
-    "    if \"DailyCapacity\" in agents.columns:\n",
-    "        agents[\"DailyCapacity\"] = pd.to_numeric(agents[\"DailyCapacity\"], errors=\"coerce\")\n",
-    "\n",
-    "    return agents\n",
-    "\n",
-    "\n",
-    "def clean_ticket_audit(audit: pd.DataFrame) -> pd.DataFrame:\n",
-    "    \"\"\"Clean the TicketAuditLog sheet.\"\"\"\n",
-    "    audit = clean_dates(audit, [\"ActionAt\"])\n",
-    "    audit = clean_text(audit, [\"ActionType\", \"PreviousValue\", \"NewValue\", \"Notes\"])\n",
-    "    return audit\n",
-    "\n",
-    "\n",
-    "def clean_escalation_log(escalations: pd.DataFrame) -> pd.DataFrame:\n",
-    "    \"\"\"Clean the EscalationLog sheet.\"\"\"\n",
-    "    escalations = clean_dates(escalations, [\"EscalatedAt\"])\n",
-    "    escalations = clean_text(escalations, [\"EscalationReason\"])\n",
-    "    return escalations\n"
-   ]
-  }
- ],
- "metadata": {
-  "kernelspec": {
-   "display_name": "NorthB (3.11.9.final.0)",
-   "language": "python",
-   "name": "python3"
-  },
-  "language_info": {
-   "codemirror_mode": {
-    "name": "ipython",
-    "version": 3
-   },
-   "file_extension": ".py",
-   "mimetype": "text/x-python",
-   "name": "python",
-   "nbconvert_exporter": "python",
-   "pygments_lexer": "ipython3",
-   "version": "3.11.9"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
-}
+print("🚀 Cleaning pipeline started...")
+
+"""
+01_cleaning.py
+NorthBridge Health – Data Cleaning Pipeline
+
+This script:
+- Loads the raw Excel dataset
+- Cleans each sheet using modular helper functions
+- Saves cleaned CSVs into Data/processed/
+"""
+
+import pandas as pd
+import os
+
+# -------------------------------------------------------------------
+# 1. File paths
+# -------------------------------------------------------------------
+
+RAW_FILE = r"C:\Users\akand\OneDrive\Documents\data journey\Amdari Resources\DS Projects\NorthBridge_Health\Data\NorthBridgeDataset.xlsx"
+OUTPUT_DIR = r"C:\Users\akand\OneDrive\Documents\data journey\Amdari Resources\DS Projects\NorthBridge_Health\Data\processed"
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+print("Cleaning pipeline started...")
+print(f"Loading raw file: {RAW_FILE}")
+
+
+# -------------------------------------------------------------------
+# 2. Generic cleaning helpers
+# -------------------------------------------------------------------
+
+def clean_dates(df, cols):
+    """Convert listed columns to datetime safely."""
+    for col in cols:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+    return df
+
+
+def clean_text(df, cols):
+    """Lowercase + strip whitespace for categorical text fields."""
+    for col in cols:
+        if col in df.columns:
+            df[col] = (
+                df[col]
+                .astype(str)
+                .str.strip()
+                .str.lower()
+            )
+    return df
+
+
+def fill_missing(df, fill_map):
+    """Fill missing values for specified columns."""
+    for col, value in fill_map.items():
+        if col in df.columns:
+            df[col] = df[col].fillna(value)
+    return df
+
+
+# -------------------------------------------------------------------
+# 3. Sheet-specific cleaning functions
+# -------------------------------------------------------------------
+
+def clean_tickets(df):
+    """Clean the Tickets sheet."""
+    df = clean_dates(df, ["CreatedAt", "FirstResponseAt", "ResolvedAt", "SLADueAt"])
+
+    df = clean_text(df, ["Status", "Channel", "Description", "ResolutionNotes"])
+
+    df = fill_missing(
+        df,
+        {
+            "PriorityID": "unknown",
+            "CategoryID": "unknown",
+            "Channel": "unknown",
+        },
+    )
+
+    return df
+
+
+def clean_clients(df):
+    """Clean the Clients sheet."""
+    df = clean_text(df, ["ClientName", "ClientType", "Region", "ContractTier", "SLACreditClause"])
+    df = clean_dates(df, ["ContractStartDate", "ContractEndDate"])
+    return df
+
+
+def clean_agents(df):
+    """Clean the Agents sheet."""
+    df = clean_text(df, ["FullName", "Role", "Specialisms", "Hub"])
+
+    if "DailyCapacity" in df.columns:
+        df["DailyCapacity"] = pd.to_numeric(df["DailyCapacity"], errors="coerce")
+
+    return df
+
+
+def clean_ticket_audit(df):
+    """Clean the TicketAuditLog sheet."""
+    df = clean_dates(df, ["ActionAt"])
+    df = clean_text(df, ["ActionType", "PreviousValue", "NewValue", "Notes"])
+    return df
+
+
+def clean_escalation_log(df):
+    """Clean the EscalationLog sheet."""
+    df = clean_dates(df, ["EscalatedAt"])
+    df = clean_text(df, ["EscalationReason"])
+    return df
+
+
+# -------------------------------------------------------------------
+# 4. Load Excel file and clean each sheet
+# -------------------------------------------------------------------
+
+xlsx = pd.ExcelFile(RAW_FILE)
+print("Sheets found:", xlsx.sheet_names)
+
+# Load sheets
+tickets_raw = pd.read_excel(xlsx, "Tickets")
+clients_raw = pd.read_excel(xlsx, "Clients")
+agents_raw = pd.read_excel(xlsx, "Agents")
+audit_raw = pd.read_excel(xlsx, "TicketAuditLog")
+escalations_raw = pd.read_excel(xlsx, "EscalationLog")
+
+# Clean sheets
+tickets = clean_tickets(tickets_raw)
+clients = clean_clients(clients_raw)
+agents = clean_agents(agents_raw)
+audit = clean_ticket_audit(audit_raw)
+escalations = clean_escalation_log(escalations_raw)
+
+# -------------------------------------------------------------------
+# 5. Save cleaned datasets
+# -------------------------------------------------------------------
+
+tickets.to_csv(os.path.join(OUTPUT_DIR, "tickets_clean.csv"), index=False)
+clients.to_csv(os.path.join(OUTPUT_DIR, "clients_clean.csv"), index=False)
+agents.to_csv(os.path.join(OUTPUT_DIR, "agents_clean.csv"), index=False)
+audit.to_csv(os.path.join(OUTPUT_DIR, "audit_clean.csv"), index=False)
+escalations.to_csv(os.path.join(OUTPUT_DIR, "escalations_clean.csv"), index=False)
+
+print("\nCleaning completed successfully.")
+print(f"Cleaned files saved to: {OUTPUT_DIR}")
